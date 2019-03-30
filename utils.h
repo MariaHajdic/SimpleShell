@@ -1,0 +1,1 @@
+void resize_array(void **arr, int *arr_size, int element_size);
