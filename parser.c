@@ -54,7 +54,7 @@ int get_in(struct Command *cmd) {
 
 void get_string(struct Command *cmd) {
     ++cmd->argc;
-    if (cmd->argc > cmd->argv_size) 
+    if (cmd->argc >= cmd->argv_size) 
         resize_array((void**)&cmd->argv,&cmd->argv_size,sizeof(char*));
     char ch;
     bool ignore = false;
@@ -68,11 +68,13 @@ void get_string(struct Command *cmd) {
             ignore = false;
             goto put_element;
         }
-        if (ch == '\"') return;
+        if (ch == '\"') {
+            return;
+        }
         if (ch == '\\') ignore = true;
 
 put_element:
-        if (i >= argument_size) {
+        if (i >= argument_size-1) {
             resize_array((void**)argument,&argument_size,sizeof(char));
         }
         (*argument)[i++] = ch;
@@ -81,7 +83,7 @@ put_element:
 
 int get_argument(struct Command *cmd, char ch) {
     ++cmd->argc;
-    if (cmd->argc > cmd->argv_size) 
+    if (cmd->argc >= cmd->argv_size) 
         resize_array((void**)&cmd->argv,&cmd->argv_size,sizeof(char*));
     cmd->argv[cmd->argc-1] = malloc(2*sizeof(char));
     memset(cmd->argv[cmd->argc-1],0,2*sizeof(char));
@@ -93,7 +95,7 @@ int get_argument(struct Command *cmd, char ch) {
         ch = getchar();
         if (ch == ' ') return 0;
         else if (ch == '\n') return 1;
-        if (i >= argument_size) {
+        if (i >= argument_size-1) {
             resize_array((void**)&cmd->argv[cmd->argc-1],&argument_size,sizeof(char));
         }
         cmd->argv[cmd->argc-1][i++] = ch;
@@ -107,20 +109,29 @@ int get_command(struct Command *cmd) {
     memset(cmd->name,0,sizeof(cmd->name));
     int name_size = 8;
     int chars = 0;
+    int exit_code = 0;
 
     while (true) {
         ch = getchar();
         if (ch == ' ') {
-            if (started) return 0;
+            if (started) goto put_cmd;
             continue;
         }
-        else if (ch == '\n') return 1;
+        else if (ch == '\n') {
+            exit_code = 1;
+            goto put_cmd;
+        }
         started = true;
         if (chars >= name_size-1)
             resize_array((void**)&cmd->name,&name_size,sizeof(char));
         cmd->name[chars++] = ch;
     }
-    return 0;
+put_cmd:
+    cmd->argv_size = 2;
+    cmd->argv = malloc(2*sizeof(char));
+    cmd->argv[0] = cmd->name;
+    cmd->argc = 1;
+    return exit_code;
 }
 
 int parse_single_command(struct Command *stream, int n) { 
@@ -164,8 +175,8 @@ exit:
 void print_command(struct Command *stream, int n) {
     for (int i = 0; i < n; ++i) {
         printf("%d'th command is: %s\n",i+1,stream[i].name);
-        for (int j = 0; j < stream[i].argc; ++j) {
-            printf("%d'th argument is: %s\n",j+1,stream[i].argv[j]);
+        for (int j = 1; j < stream[i].argc; ++j) {
+            printf("%d'th argument is: %s\n",j,stream[i].argv[j]);
         }
         if (stream[i].in_exists) {
             printf("Input source is: %s\n",stream[i].in);
@@ -179,7 +190,7 @@ void print_command(struct Command *stream, int n) {
 void clean_up(struct Command *command_stream, int commands_num) {
     for (int i = 0; i < commands_num; ++i) {
         struct Command cmd = command_stream[i];
-        for (int j = 0; j < cmd.argc; ++j) {
+        for (int j = 1; j < cmd.argc; ++j) {
             free(cmd.argv[j]);
         }
         if (cmd.in_exists) free(cmd.in);
@@ -201,5 +212,5 @@ void parse_commands(struct Command **command_stream, int *commands_num) {
         } 
     }
     --*commands_num;
-    print_command(*command_stream,*commands_num);
+    //print_command(*command_stream,*commands_num);
 }
