@@ -140,8 +140,10 @@ int parse_single_command(struct Command *stream, int n) {
     cmd.in_exists = false;
     cmd.out_exists = false;
     cmd.argv_size = 0;
+    cmd.status = DEFAULT;
 
     if (get_command(&cmd)) goto exit;
+    if (strlen(cmd.name) == 0) return 1;
 
     while (true) {
         char ch;
@@ -149,8 +151,17 @@ int parse_single_command(struct Command *stream, int n) {
         switch (ch) {
             case ' ': continue;
             case '|':
+                cmd.status = PIPE;
+                ch = getchar();
+                if (ch == '|') cmd.status = OR;
                 stream[n-1] = cmd;
-                return 1;
+                return 0;
+            case '&':
+                cmd.status = BG;
+                ch = getchar();
+                if (ch == '&') cmd.status = AND;
+                stream[n-1] = cmd;
+                return 0;
             case '\n':
                 goto exit;
             case '\"':
@@ -169,7 +180,7 @@ int parse_single_command(struct Command *stream, int n) {
     }
 exit:
     stream[n-1] = cmd;
-    return 0;
+    return 1;
 }
 
 void print_command(struct Command *stream, int n) {
@@ -206,11 +217,11 @@ void parse_commands(struct Command **command_stream, int *commands_num) {
     int stream_size = 1;
 
     while (true) {
-        if (!parse_single_command(*command_stream,(*commands_num)++)) break;   
+        if (parse_single_command(*command_stream,(*commands_num)++)) break;   
         if (*commands_num >= stream_size) {
             resize_array((void**)command_stream,&stream_size,sizeof(struct Command));
         } 
     }
     --*commands_num;
-    //print_command(*command_stream,*commands_num);
+    // print_command(*command_stream,*commands_num);
 }
