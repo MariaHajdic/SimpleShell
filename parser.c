@@ -129,7 +129,7 @@ int get_command(struct Command *cmd) {
     char ch;
     bool started = false;
     cmd->name = malloc(sizeof(char) * 8);
-    memset(cmd->name, 0, sizeof(cmd->name));
+    memset(cmd->name, 0, sizeof(char) * 8);
     int name_size = 8;
     int chars = 0;
     int exit_code = 0;
