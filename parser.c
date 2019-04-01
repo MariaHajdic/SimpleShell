@@ -5,57 +5,67 @@
 #include <string.h>
 
 int get_out(struct Command *cmd) {
-    cmd->out_exists = true;
     char ch;
     bool started = false;
-    cmd->out = malloc(sizeof(char)*8);
-    int out_size = 8;
+    int out_size = 0;
     int chars = 0;
-    memset(cmd->out,0,sizeof(out_size));
 
     while (true) {
         ch = getchar();
-        if (ch == '>') continue;
-        if (ch == ' ') {
-            if (started) return 0;
-            continue;
+        switch (ch) {
+            case '>':
+                continue;
+            case ' ':
+                if (started) {
+                    return 0;
+                }
+                continue;
+            case '\n':
+                return 1;
         }
-        else if (ch == '\n') return 1;
         started = true;
-        if (chars >= out_size-1) 
-            resize_array((void**)&cmd->out,&out_size,sizeof(char));
+        if (chars >= out_size - 1) {
+            resize_array((void**)&cmd->out, &out_size, sizeof(char), chars + 1);
+        }
         cmd->out[chars++] = ch;
     }
 }
 
 int get_in(struct Command *cmd) {
-    cmd->in_exists = true;
     char ch;
     bool started = false;
-    cmd->in = malloc(sizeof(char)*8);
-    int in_size = 8;
+    int in_size = 0;
     int chars = 0;
-    memset(cmd->in,0,sizeof(in_size));
 
     while (true) {
         ch = getchar();
-        if (ch == '<') continue;
-        if (ch == ' ') {
-            if (started) return 0;
-            continue;
+        switch (ch) {
+            case '<':
+                continue;
+            case ' ':
+                if (started) {
+                    return 0;
+                }
+                continue;
+            case '\n':
+                return 1;
         }
-        else if (ch == '\n') return 1;
         started = true;
-        if (chars >= in_size-1) 
-            resize_array((void**)&cmd->in,&in_size,sizeof(char));
+        if (chars >= in_size - 1) {
+            resize_array((void**)&cmd->in, &in_size, sizeof(char), chars + 1);
+        }
         cmd->in[chars++] = ch;
     }
 }
 
-void get_string(struct Command *cmd) {
+void get_string(struct Command *cmd, char quotes) {
     ++cmd->argc;
-    if (cmd->argc >= cmd->argv_size) 
-        resize_array((void**)&cmd->argv,&cmd->argv_size,sizeof(char*));
+    if (cmd->argc >= cmd->argv_size - 1) {
+        cmd->argv = realloc(cmd->argv, (cmd->argv_size + 1) * 2 * sizeof(char*));
+        cmd->argv_size = (cmd->argv_size + 1) * 2;
+    }
+    cmd->argv[cmd->argc] = NULL;
+        
     char ch;
     bool ignore = false;
     int i = 0;
@@ -68,14 +78,19 @@ void get_string(struct Command *cmd) {
             ignore = false;
             goto put_element;
         }
-        if (ch == '\"') {
+        if (ch == '\"' && quotes == '\"') {
             return;
         }
-        if (ch == '\\') ignore = true;
+        if (ch == '\'' && quotes == '\'') {
+            return;
+        }
+        if (ch == '\\') {
+            ignore = true;
+        }
 
 put_element:
-        if (i >= argument_size-1) {
-            resize_array((void**)argument,&argument_size,sizeof(char));
+        if (i >= argument_size - 1) {
+            resize_array((void**)argument, &argument_size, sizeof(char), i + 1);
         }
         (*argument)[i++] = ch;
     }
@@ -83,20 +98,28 @@ put_element:
 
 int get_argument(struct Command *cmd, char ch) {
     ++cmd->argc;
-    if (cmd->argc >= cmd->argv_size) 
-        resize_array((void**)&cmd->argv,&cmd->argv_size,sizeof(char*));
-    cmd->argv[cmd->argc-1] = malloc(2*sizeof(char));
-    memset(cmd->argv[cmd->argc-1],0,2*sizeof(char));
+    if (cmd->argc >= cmd->argv_size - 1) {
+        cmd->argv = realloc(cmd->argv, (cmd->argv_size + 1) * 2 * sizeof(char*));
+        cmd->argv_size = (cmd->argv_size + 1) * 2;
+    }
+    cmd->argv[cmd->argc] = NULL;
+    cmd->argv[cmd->argc-1] = malloc(2 * sizeof(char));
+    memset(cmd->argv[cmd->argc-1], 0, 2 * sizeof(char));
     cmd->argv[cmd->argc-1][0] = ch;
     int i = 1;
     int argument_size = 2;
+    char **argument = &cmd->argv[cmd->argc - 1];
 
     while (true) {
         ch = getchar();
-        if (ch == ' ') return 0;
-        else if (ch == '\n') return 1;
-        if (i >= argument_size-1) {
-            resize_array((void**)&cmd->argv[cmd->argc-1],&argument_size,sizeof(char));
+        if (ch == ' ') {
+            return 0;
+        } 
+        if (ch == '\n') {
+            return 1;
+        }
+        if (i >= argument_size - 1) {
+            resize_array((void**)argument, &argument_size, sizeof(char), i + 1);
         }
         cmd->argv[cmd->argc-1][i++] = ch;
     }
@@ -105,8 +128,8 @@ int get_argument(struct Command *cmd, char ch) {
 int get_command(struct Command *cmd) {
     char ch;
     bool started = false;
-    cmd->name = malloc(sizeof(char)*8);
-    memset(cmd->name,0,sizeof(cmd->name));
+    cmd->name = malloc(sizeof(char) * 8);
+    memset(cmd->name, 0, sizeof(cmd->name));
     int name_size = 8;
     int chars = 0;
     int exit_code = 0;
@@ -114,39 +137,54 @@ int get_command(struct Command *cmd) {
     while (true) {
         ch = getchar();
         if (ch == ' ') {
-            if (started) goto put_cmd;
+            if (started) {
+                goto put_cmd;
+            }
             continue;
         }
-        else if (ch == '\n') {
+        if (ch == '\n') {
             exit_code = 1;
             goto put_cmd;
         }
         started = true;
-        if (chars >= name_size-1)
-            resize_array((void**)&cmd->name,&name_size,sizeof(char));
+        if (chars >= name_size - 1) {
+            resize_array((void**)&cmd->name, &name_size, sizeof(char), chars + 1);
+        }
         cmd->name[chars++] = ch;
     }
 put_cmd:
     cmd->argv_size = 2;
-    cmd->argv = malloc(2*sizeof(char));
+    cmd->argv = malloc(2 * sizeof(char*));
     cmd->argv[0] = cmd->name;
+    cmd->argv[1] = NULL;
     cmd->argc = 1;
     return exit_code;
+}
+
+void skip_comment() {
+    char ch;
+    while (true) {
+        ch = getchar();
+        if (ch == '\n') return;
+    }
 }
 
 int parse_single_command(struct Command *stream, int n) { 
     struct Command cmd;
     cmd.argc = 0;
-    cmd.in_exists = false;
-    cmd.out_exists = false;
     cmd.argv_size = 0;
     cmd.status = DEFAULT;
+    cmd.in = NULL;
+    cmd.out = NULL;
 
     if (get_command(&cmd)) goto exit;
-    if (strlen(cmd.name) == 0) return 1;
+    if (strlen(cmd.name) == 0) {
+        return 1;
+    }
 
     while (true) {
         char ch;
+        char quotes;
         ch = getchar();
         switch (ch) {
             case ' ': continue;
@@ -164,8 +202,13 @@ int parse_single_command(struct Command *stream, int n) {
                 return 0;
             case '\n':
                 goto exit;
+            case '\'':
+                quotes = '\'';
+                get_string(&cmd,quotes);
+                break;
             case '\"':
-                get_string(&cmd);
+                quotes = '\"';
+                get_string(&cmd,quotes);
                 break;
             case '<':
                 if (get_in(&cmd)) goto exit;
@@ -173,6 +216,9 @@ int parse_single_command(struct Command *stream, int n) {
             case '>':
                 if (get_out(&cmd)) goto exit;
                 break;
+            case '#':
+                skip_comment();
+                goto exit;
             default:
                 if (get_argument(&cmd,ch)) goto exit;
                 break;
@@ -185,15 +231,15 @@ exit:
 
 void print_command(struct Command *stream, int n) {
     for (int i = 0; i < n; ++i) {
-        printf("%d'th command is: %s\n",i+1,stream[i].name);
+        printf("%d'th command is: %s\n", i+1, stream[i].name);
         for (int j = 1; j < stream[i].argc; ++j) {
-            printf("%d'th argument is: %s\n",j,stream[i].argv[j]);
+            printf("%d'th argument is: %s\n", j, stream[i].argv[j]);
         }
-        if (stream[i].in_exists) {
-            printf("Input source is: %s\n",stream[i].in);
+        if (stream[i].in == NULL) {
+            printf("Input source is: %s\n", stream[i].in);
         }
-        if (stream[i].out_exists) {
-            printf("Output destination is: %s\n",stream[i].out);
+        if (stream[i].out == NULL) {
+            printf("Output destination is: %s\n", stream[i].out);
         }
     }
 }
@@ -204,8 +250,11 @@ void clean_up(struct Command *command_stream, int commands_num) {
         for (int j = 1; j < cmd.argc; ++j) {
             free(cmd.argv[j]);
         }
-        if (cmd.in_exists) free(cmd.in);
-        if (cmd.out_exists) free(cmd.out);
+        if (cmd.in) 
+            free(cmd.in);
+        if (cmd.out) 
+            free(cmd.out);
+        free(cmd.argv);
         free(cmd.name);
     } 
     free(command_stream);
@@ -217,9 +266,10 @@ void parse_commands(struct Command **command_stream, int *commands_num) {
     int stream_size = 1;
 
     while (true) {
-        if (parse_single_command(*command_stream,(*commands_num)++)) break;   
+        if (parse_single_command(*command_stream, (*commands_num)++)) 
+            break;   
         if (*commands_num >= stream_size) {
-            resize_array((void**)command_stream,&stream_size,sizeof(struct Command));
+            resize_array((void**)command_stream, &stream_size, sizeof(struct Command), *commands_num);
         } 
     }
     --*commands_num;
