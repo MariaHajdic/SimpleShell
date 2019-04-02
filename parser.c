@@ -13,7 +13,9 @@ void skip_whitespaces() {
 
 void skip_comment() {
     char ch = getchar();
-    while (ch != '\n') {};
+    while (ch != '\n') {
+        ch = getchar();
+    }
     ungetc(ch, stdin);
 }
 
@@ -131,10 +133,25 @@ bool parse_single_command(struct Command **stream, int *cnum) {
                 else 
                     ungetc(ch, stdin);
                 skip_whitespaces();
-                get_token(&cmd.out, ' ');
+                char end_char = ' ';
+                ch = getchar();
+                if (ch == '\"' || ch == '\'') {
+                    end_char = ch;
+                } else {
+                    ungetc(ch, stdin);
+                }
+                get_token(&cmd.out, end_char);
                 break;
             case '<':
                 skip_whitespaces();
+                end_char = ' ';
+                ch = getchar();
+                if (ch == '\"' || ch == '\'') {
+                    end_char = ch;
+                } else {
+                    ungetc(ch, stdin);
+                }
+                get_token(&cmd.out, end_char);
                 get_token(&cmd.in, ' ');
                 break;
             case '|':

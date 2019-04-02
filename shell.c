@@ -70,6 +70,8 @@ bool exec_parent(
 }
 
 void wait_bg(pid_t **pid_bg, int* bg_size) {
+    if (*bg_size < 1) 
+        return;
     pid_t *tmp = malloc(*bg_size * sizeof(pid_t));
     int j = 0;
     int new_bg_size = 0;
