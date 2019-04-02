@@ -15,10 +15,10 @@ struct Command {
     char *name;
     char **argv;
     int argc;
-    int argv_size;
     char *in;
     char *out;
     enum QStatus status;
+    bool output_rewrite;
 };
 
 void parse_commands(struct Command **command_stream, int *commands_num);
