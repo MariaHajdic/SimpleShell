@@ -45,17 +45,10 @@ bool exec_parent(
     int *prev_fd, 
     int *fd, 
     pid_t *pid_running, 
-    pid_t **pid_bg,
-    int *bg_size,
     int *last_pid_idx, 
     pid_t pid
 ) {
     close(fd[1]);
-    if (cmd->status == BG) {
-        *pid_bg = realloc(*pid_bg, (*bg_size + 1) * sizeof(pid_t));
-        (*pid_bg)[(*bg_size)++] = pid;
-        return true;
-    }
     pid_running[++*last_pid_idx] = pid;
     if (cmd->status == AND || cmd->status == OR) {
         int status;
@@ -94,22 +87,35 @@ int main() {
 
     while (true) {
         // printf("> ");
-        struct Command *command_stream = NULL;
-        int commands_num = 0;
-        parse_commands(&command_stream, &commands_num);
-        pid_t *pid_running = malloc(commands_num * sizeof(pid_t));
+        struct CommandStream stream = parse_commands();
+        
+        pid_t *pid_running = malloc(stream.size * sizeof(pid_t));
         int prev_fd = STDIN_FILENO;
         int last_pid_idx = -1;
         bool prev_success = true;
+        bool has_bg_shell = false;
+        bool is_bg_shell = false;
 
-        for (int i = 0; i < commands_num; ++i) {
-            struct Command cmd = command_stream[i];
+        if (stream.bg) {
+            pid_t sh_pid = fork();
+            if (sh_pid == 0) {
+                is_bg_shell = true;
+            } else {
+                has_bg_shell = true;
+                stream.size = 0;
+                pid_bg = realloc(pid_bg, (bg_size + 1) * sizeof(pid_t));
+                pid_bg[bg_size++] = sh_pid;
+             }
+        }
+
+        for (int i = 0; i < stream.size; ++i) {
+            struct Command cmd = stream.cmds[i];
 
             bool exec_needed = true;
-            if (i > 0 && command_stream[i - 1].status == AND) {
+            if (i > 0 && stream.cmds[i - 1].status == AND) {
                 exec_needed = prev_success;
             }
-            if (i > 0 && command_stream[i - 1].status == OR) {
+            if (i > 0 && stream.cmds[i - 1].status == OR) {
                 exec_needed = !prev_success;
             }
             if (!exec_needed)
@@ -126,24 +132,30 @@ int main() {
                 break;
             }
             pid_t pid = fork();
-            bool allow_input_redirect = (i == 0 || command_stream[i-1].status != PIPE);
+            bool allow_input_redirect = (i == 0 || stream.cmds[i-1].status != PIPE);
             if (pid == 0) { // if child 
                 return exec_child(&cmd, prev_fd, fd, allow_input_redirect);
             } else if (pid != -1) { // parent
                 prev_success = exec_parent(&cmd, &prev_fd, fd, pid_running, 
-                    &pid_bg, &bg_size, &last_pid_idx, pid);
+                    &last_pid_idx, pid);
             } else {
                 printf("Couldn't fork!\n");
                 break;
             }
         }
-        for (int i = 0; i <= last_pid_idx; ++i) {
-            int status;
-            waitpid(pid_running[i], &status, 0);
-        }
-        wait_bg(&pid_bg, &bg_size);
 
-        clean_up(command_stream, commands_num);
+        if (!has_bg_shell) {
+            for (int i = 0; i <= last_pid_idx; ++i) {
+                int status;
+                waitpid(pid_running[i], &status, 0);
+            }
+        }
+        if (is_bg_shell) {
+            exit(0);
+        }
+        
+        wait_bg(&pid_bg, &bg_size);
+        clean_up(&stream);
         free(pid_running);
     }
     if (pid_bg != NULL) 

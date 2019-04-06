@@ -7,8 +7,7 @@ enum QStatus {
     DEFAULT,
     PIPE,
     AND,
-    OR,
-    BG,
+    OR
 };
 
 struct Command {
@@ -21,7 +20,13 @@ struct Command {
     bool output_rewrite;
 };
 
-void parse_commands(struct Command **command_stream, int *commands_num);
-void clean_up(struct Command *command_stream, int commands_num);
+struct CommandStream {
+    int size;
+    struct Command *cmds;
+    bool bg;
+};
+
+struct CommandStream parse_commands();
+void clean_up(struct CommandStream *stream);
 
 #endif

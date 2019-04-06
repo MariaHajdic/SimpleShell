@@ -20,9 +20,9 @@ void skip_comment() {
     ungetc(ch, stdin);
 }
 
-void clean_up(struct Command *command_stream, int commands_num) {
-    for (int i = 0; i < commands_num; ++i) {
-        struct Command cmd = command_stream[i];
+void clean_up(struct CommandStream *stream) {
+    for (int i = 0; i < stream->size; ++i) {
+        struct Command cmd = stream->cmds[i];
         for (int j = 1; j < cmd.argc; ++j) {
             free(cmd.argv[j]);
         }
@@ -33,7 +33,7 @@ void clean_up(struct Command *command_stream, int commands_num) {
         free(cmd.argv);
         free(cmd.name);
     } 
-    free(command_stream);
+    free(stream->cmds);
 }
 
 void print_command(struct Command *stream, int n) {
@@ -72,6 +72,10 @@ void get_token(char **token, char ending) {
         } else {
             if (ch == EOF) 
                 return;
+            if (ending == ' ' && ch == '|') {
+                ungetc(ch, stdin);
+                return;
+            }
             if (ch == '\n' && !ignore_new_line) {
                 ungetc(ch, stdin);
                 return;
@@ -99,7 +103,7 @@ void put_argument(struct Command *cmd, char ending) {
 }
 
 /* returns true if waiting for another command, else false */
-bool parse_single_command(struct Command **stream, int *cnum) {
+bool parse_single_command(struct CommandStream *stream) {
     struct Command cmd;
     memset(&cmd, 0, sizeof(cmd));
     cmd.status = DEFAULT;
@@ -119,12 +123,16 @@ bool parse_single_command(struct Command **stream, int *cnum) {
     }
 
     bool awaiting_next_cmd = true;
+    bool ignore_new_line = false;
 
     while (true) {
         char ch = getchar();
         switch (ch) {
             case '#':
                 skip_comment();
+                break;
+            case '\\':
+                ignore_new_line = true;
                 break;
             case '\t':
             case ' ':
@@ -133,6 +141,10 @@ bool parse_single_command(struct Command **stream, int *cnum) {
             case EOF:
                 exit(0);
             case '\n':
+                if (ignore_new_line) {
+                    ignore_new_line = false;
+                    break;
+                }
                 awaiting_next_cmd = false;
                 goto exit;
             case '>':
@@ -177,7 +189,8 @@ bool parse_single_command(struct Command **stream, int *cnum) {
                 if (ch == '&') 
                     cmd.status = AND;
                 else {
-                    cmd.status = BG;
+                    stream->bg = true;
+                    awaiting_next_cmd = false;
                     ungetc(ch, stdin);
                 }
                 goto exit;
@@ -197,12 +210,15 @@ bool parse_single_command(struct Command **stream, int *cnum) {
 exit:
     if (cmd.name == NULL) 
         return false;
-    *stream = realloc(*stream, ((*cnum) + 1) * sizeof(struct Command));
-    (*stream)[(*cnum)++] = cmd;
+    stream->cmds = realloc(stream->cmds, (stream->size + 1) * sizeof(struct Command));
+    stream->cmds[stream->size++] = cmd;
     return awaiting_next_cmd; 
 }
 
-void parse_commands(struct Command **stream, int *cnum) {
-    while (parse_single_command(stream, cnum)) {};
+struct CommandStream parse_commands() {
+    struct CommandStream stream;
+    memset(&stream, 0, sizeof(stream));
+    while (parse_single_command(&stream)) {};
     // print_command(*stream, *cnum);
+    return stream;
 }
