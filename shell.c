@@ -93,7 +93,7 @@ int main() {
     int bg_size = 0;
 
     while (true) {
-        printf("> ");
+        // printf("> ");
         struct Command *command_stream = NULL;
         int commands_num = 0;
         parse_commands(&command_stream, &commands_num);

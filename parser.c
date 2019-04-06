@@ -2,10 +2,11 @@
 #include "utils.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 void skip_whitespaces() {
     char ch = getchar();
-    while (ch == ' ') {
+    while (ch == ' ' || ch == '\t') {
         ch = getchar();
     }
     ungetc(ch, stdin);
@@ -13,7 +14,7 @@ void skip_whitespaces() {
 
 void skip_comment() {
     char ch = getchar();
-    while (ch != '\n') {
+    while (ch != '\n' && ch != EOF) {
         ch = getchar();
     }
     ungetc(ch, stdin);
@@ -52,11 +53,15 @@ void print_command(struct Command *stream, int n) {
 
 void get_token(char **token, char ending) {
     if (*token == NULL) {
-        *token = calloc(2 * sizeof(char), 0);
+        *token = calloc(2, sizeof(char));
     }
     int size = 2;
     int i = 0;
     bool ignore = false;
+    bool ignore_new_line = false;
+
+    if (ending == '\'' || ending == '\"') 
+        ignore_new_line = true;
     
     while (true) {
         char ch = getchar();
@@ -65,10 +70,14 @@ void get_token(char **token, char ending) {
             if (ch == '\n') 
                 continue;
         } else {
-            if (ch == '\n') {
+            if (ch == EOF) 
+                return;
+            if (ch == '\n' && !ignore_new_line) {
                 ungetc(ch, stdin);
                 return;
             }
+            if (ending == ' ' && ch == '\t')
+                return;
             if (ch == ending) 
                 return;
             if (ch == '\\') {
@@ -77,7 +86,7 @@ void get_token(char **token, char ending) {
             }
         }
         if (i >= size - 1) {
-            resize_array(token, &size, i + 1);
+            resize_array(token, &size);
         }
         (*token)[i++] = ch;
     }   
@@ -92,11 +101,7 @@ void put_argument(struct Command *cmd, char ending) {
 /* returns true if waiting for another command, else false */
 bool parse_single_command(struct Command **stream, int *cnum) {
     struct Command cmd;
-    cmd.name = NULL;
-    cmd.argv = NULL;
-    cmd.argc = 0;
-    cmd.in = NULL;
-    cmd.out = NULL;
+    memset(&cmd, 0, sizeof(cmd));
     cmd.status = DEFAULT;
     cmd.output_rewrite = true;
 
@@ -121,8 +126,12 @@ bool parse_single_command(struct Command **stream, int *cnum) {
             case '#':
                 skip_comment();
                 break;
+            case '\t':
             case ' ':
-                continue;
+                skip_whitespaces();
+                break;
+            case EOF:
+                exit(0);
             case '\n':
                 awaiting_next_cmd = false;
                 goto exit;
@@ -195,4 +204,5 @@ exit:
 
 void parse_commands(struct Command **stream, int *cnum) {
     while (parse_single_command(stream, cnum)) {};
+    // print_command(*stream, *cnum);
 }
