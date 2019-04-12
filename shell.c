@@ -63,8 +63,7 @@ bool exec_parent(
 }
 
 void wait_bg() {
-    int status;
-    while (waitpid(-1, &status, WNOHANG) > 0) {}
+    while (waitpid(-1, NULL, WNOHANG) > 0) {}
 }
 
 int main() {
@@ -127,8 +126,7 @@ int main() {
 
         if (!has_bg_shell) {
             for (int i = 0; i <= last_pid_idx; ++i) {
-                int status;
-                waitpid(pid_running[i], &status, 0);
+                waitpid(pid_running[i], NULL, 0);
             }
         }
         if (is_bg_shell) {
