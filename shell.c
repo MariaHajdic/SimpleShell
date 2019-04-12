@@ -62,29 +62,12 @@ bool exec_parent(
     return true;
 }
 
-void wait_bg(pid_t **pid_bg, int* bg_size) {
-    if (*bg_size < 1) 
-        return;
-    pid_t *tmp = malloc(*bg_size * sizeof(pid_t));
-    int j = 0;
-    int new_bg_size = 0;
-    for (int i = 0; i < *bg_size; ++i) {
-        int status;
-        if (waitpid((*pid_bg)[i], &status, WNOHANG) == 0) {
-            tmp[j++] = (*pid_bg)[i];
-            ++new_bg_size;
-        }
-    }
-    *pid_bg = realloc(*pid_bg, new_bg_size * sizeof(pid_t));
-    memcpy(*pid_bg, tmp, new_bg_size * sizeof(pid_t));
-    *bg_size = new_bg_size;
-    free(tmp);
+void wait_bg() {
+    int status;
+    while (waitpid(-1, &status, WNOHANG) > 0) {}
 }
 
 int main() {
-    pid_t *pid_bg = NULL;
-    int bg_size = 0;
-
     while (true) {
         // printf("> ");
         struct CommandStream stream = parse_commands();
@@ -103,8 +86,6 @@ int main() {
             } else {
                 has_bg_shell = true;
                 stream.size = 0;
-                pid_bg = realloc(pid_bg, (bg_size + 1) * sizeof(pid_t));
-                pid_bg[bg_size++] = sh_pid;
              }
         }
 
@@ -153,12 +134,10 @@ int main() {
         if (is_bg_shell) {
             exit(0);
         }
-        
-        wait_bg(&pid_bg, &bg_size);
+
+        wait_bg();
         clean_up(&stream);
         free(pid_running);
     }
-    if (pid_bg != NULL) 
-        free(pid_bg);
     return 0;
 }

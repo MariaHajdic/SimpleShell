@@ -90,7 +90,7 @@ void get_token(char **token, char ending) {
             }
         }
         if (i >= size - 1) {
-            resize_array(token, &size);
+            size = resize_array(token, size);
         }
         (*token)[i++] = ch;
     }   
@@ -219,6 +219,5 @@ struct CommandStream parse_commands() {
     struct CommandStream stream;
     memset(&stream, 0, sizeof(stream));
     while (parse_single_command(&stream)) {};
-    // print_command(*stream, *cnum);
     return stream;
 }
